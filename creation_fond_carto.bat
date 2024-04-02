@@ -4,13 +4,17 @@ rem Script DOS récupérant la donnée OCS/RTGE de la MEL pour produire un fond 
 rem le script nécessite seulement un environnement gdal/ogr 3.x, celui disponible avec l'installation qgis suffit
 rem #shadowit #onfaitavec #annees90forever
 
-SET WORKSPACE=D:\Users\jrmoreale\Documents\SIG\tuiles
+rem Enregistrer l'heure de début
+set STARTTIME=%TIME%
+
+SET LOCAL_WORKSPACE_PATH=D:\Users\jrmoreale\Documents\SIG\tuiles
+SET SERVER_PATH=\\eureka\commun\equipemt\SIG Data Lille\Donnees\sources_externes
 
 rem paramètres d'extraction des données par les flux WFS du Geoserver de la MEL
-SET EXTRACT_OUTPUT_PATH=%WORKSPACE%\extraction\
+SET EXTRACT_OUTPUT_PATH=%LOCAL_WORKSPACE_PATH%\extraction\
 SET EXTRACT_OUTPUT_FILENAME=mel_extraction_wfs
 rem bbox au format xmin ymin xmax ymax
-SET BBOX=697450 7053640 709230 7065050
+SET BBOX=694500 7053500 712000 7065000
 SET MEL_URL_WFS=https://mel-geoserver.lillemetropole.fr/geoserver/wfs?TYPENAMES=
 SET EXTRACT_SETTINGS=-overwrite --config OGR_WFS_PAGE_SIZE 100000 -gt 65536 -makevalid -preserve_fid -a_srs EPSG:2154
 SET LAYER_COMMUNES=communes
@@ -41,7 +45,7 @@ REM ogrinfo -sql "CREATE INDEX ON %LAYER_ILOT% USING SURFACE" %EXTRACT_OUTPUT_PA
 ECHO Etape 1 - recuperation des donnees WFS faite !
 
 REM paramètres de conversion de couches préparées
-SET CONVERT_OUTPUT_PATH=%WORKSPACE%\conversion
+SET CONVERT_OUTPUT_PATH=%LOCAL_WORKSPACE_PATH%\conversion
 SET CONVERT_OUTPUT_FILENAME=mel_conversion
 SET CONVERT_SETTINGS=-overwrite -gt 65536 -preserve_fid -a_srs EPSG:2154 -update
 SET LAYER_ILOT_Z20=ilots_complet_z20
@@ -101,7 +105,7 @@ ECHO Etape 5 - conversion des elements de voirie faite !
 ECHO Etape 6 - conversion en Flatgeobuf en cours
 
 rem sauvegarde en Flatgeobuf
-SET CONVERT_FGB_OUTPUT_PATH=%WORKSPACE%\conversion\fgb
+SET CONVERT_FGB_OUTPUT_PATH=%LOCAL_WORKSPACE_PATH%\conversion\fgb
 
 ogr2ogr -if GPKG -f FlatGeobuf %CONVERT_FGB_OUTPUT_PATH%\%LAYER_COMMUNES%.fgb %CONVERT_OUTPUT_PATH%\%CONVERT_OUTPUT_FILENAME%.gpkg -sql "SELECT * FROM %LAYER_COMMUNES%" -dsco TITLE=%LAYER_COMMUNES%
 
@@ -153,4 +157,27 @@ copy /B /V /Y "%CONVERT_FGB_OUTPUT_PATH%\%LAYER_VOIES_TRONCONS%.fgb" "%SERVER_PA
 
 ECHO Etape 7 - copie sur le serveur faite
 
-echo Done !
+rem Enregistrer l'heure de fin
+set ENDTIME=%TIME%
+
+rem Convertir STARTTIME et ENDTIME en secondes
+for /f "tokens=1-3 delims=:" %%a in ("%STARTTIME%") do (
+    set /a STARTSEC=3600*1%%a+60*1%%b+1%%c
+)
+for /f "tokens=1-3 delims=:" %%a in ("%ENDTIME%") do (
+    set /a ENDSEC=3600*1%%a+60*1%%b+1%%c
+)
+
+rem Calculer la différence en secondes
+set /a DELTA=%ENDSEC%-%STARTSEC%
+
+rem Convertir DELTA en heures, minutes et secondes
+set /a HOURS=%DELTA% / 3600
+set /a DELTA=%DELTA% %% 3600
+set /a MINUTES=%DELTA% / 60
+set /a SECONDS=%DELTA% %% 60
+
+rem Afficher le temps d'exécution total
+echo Temps d'exécution total : %HOURS% heures %MINUTES% minutes %SECONDS% secondes.
+
+echo Fini !
